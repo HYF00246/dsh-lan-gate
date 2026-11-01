@@ -1,0 +1,43 @@
+﻿{
+  "name": "dsh-lan-gate",
+  "version": "0.1.0",
+  "description": "鍦ㄧ數鑴戠Щ鍔ㄧ儹鐐圭殑灞€鍩熺綉鍐咃紝鐢ㄦ墜鏈烘祻瑙堝櫒璁块棶骞舵搷鎺?DeepSeek Harness Web GUI锛涘甫 DSH 鐣岄潰鍐呯殑鎮诞寮€鍏炽€?,
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "lan",
+    "hotspot",
+    "mobile",
+    "remote"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "engines": {
+    "dsh": "^0.2.1-rc.5"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HYF00246/dsh-lan-gate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HYF00246/dsh-lan-gate/issues"
+  },
+  "homepage": "https://github.com/HYF00246/dsh-lan-gate#readme"
+}

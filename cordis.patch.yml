@@ -1,0 +1,16 @@
+# dsh-lan-gate 的 bundle patch：把插件行插入 profile 的配置树。
+#
+# 安装（本地开发，link 方式）：
+#   dsh plugin --profile desktop add link:<本仓库克隆后的绝对路径>
+#
+# 安装（发布到 npm 后）：
+#   dsh plugin --profile desktop add dsh-lan-gate
+#
+# 默认无需任何配置；需要改监听地址/端口时，取消下面 config 的注释并修改。
+- insert:
+    - id: lan-gate
+      name: dsh-lan-gate
+      # config:
+      #   listenHost: 192.168.137.1   # 只监听热点网段；改成 0.0.0.0 会暴露到所有网卡
+      #   port: 18080                 # 手机访问的端口
+      #   widget: true                # 是否在界面右下角显示悬浮开关

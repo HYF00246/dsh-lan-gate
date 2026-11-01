@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 日志与系统垃圾
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 插件运行时写入 $DSH_HOME 的状态文件，不应入库
+.lan-gate-state.json
+
+# 内部资料：调研笔记、实现方案草稿、发布清单（不发布）
+.research/
+PLAN.md
+PUBLISHING.md

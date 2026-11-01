@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "dsh-lan-gate",
   "version": "0.1.0",
-  "description": "鍦ㄧ數鑴戠Щ鍔ㄧ儹鐐圭殑灞€鍩熺綉鍐咃紝鐢ㄦ墜鏈烘祻瑙堝櫒璁块棶骞舵搷鎺?DeepSeek Harness Web GUI锛涘甫 DSH 鐣岄潰鍐呯殑鎮诞寮€鍏炽€?,
+  "description": "在电脑移动热点的局域网内，用手机浏览器访问并操控 DeepSeek Harness Web GUI；带 DSH 界面内的悬浮开关。",
   "keywords": [
     "dsh",
     "dsh-plugin",

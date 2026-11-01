@@ -25,6 +25,8 @@
 	var MOVE_THRESHOLD = 10
 	var ERROR_MS = 4000
 	var GAP = 16
+	/** 小于这个宽度（手机）不显示悬浮开关，避免挡住发送/确认按钮。 */
+	var MOBILE_MAX_WIDTH = 820
 
 	var host = document.createElement("div")
 	host.id = "dsh-lan-gate"
@@ -249,6 +251,24 @@
 		else defaultPosition()
 	})
 
+	/**
+	 * 手机等窄屏隐藏悬浮开关：它固定浮在右下角，会挡住发送/确认/取消按钮。
+	 * 电脑端（宽屏）照常显示。
+	 */
+	var narrowQuery = typeof window.matchMedia === "function"
+		? window.matchMedia("(max-width: " + MOBILE_MAX_WIDTH + "px)")
+		: null
+
+	/** 按视口宽度同步显示/隐藏。 */
+	function syncVisibility() {
+		host.style.display = narrowQuery !== null && narrowQuery.matches ? "none" : ""
+	}
+
+	if (narrowQuery !== null) {
+		if (typeof narrowQuery.addEventListener === "function") narrowQuery.addEventListener("change", syncVisibility)
+		else if (typeof narrowQuery.addListener === "function") narrowQuery.addListener(syncVisibility)
+	}
+
 	/** 挂载。 */
 	function mount() {
 		var parent = document.body || document.documentElement
@@ -257,6 +277,7 @@
 			return
 		}
 		parent.appendChild(host)
+		syncVisibility()
 		initialPlace()
 		render()
 		refresh()

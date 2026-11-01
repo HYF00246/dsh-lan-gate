@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import net from "node:net"
 import test from "node:test"
 
 import {
+	createProxyServer,
 	filterResponseHeaders,
 	isForwardablePath,
 	mergeCookie,
@@ -113,4 +115,27 @@ test("filterResponseHeaders：丢掉逐跳头与 Set-Cookie", () => {
 	assert.equal(out["set-cookie"], undefined)
 	assert.equal(out.connection, undefined)
 	assert.equal(out["transfer-encoding"], undefined)
+})
+
+test("close() 在仍有活跃连接时也能及时返回（不会卡在 stopping）", async () => {
+	const { server, close } = createProxyServer({
+		upstream: {
+			async get() {
+				return { origin: "http://127.0.0.1:1", authority: "127.0.0.1:1", host: "127.0.0.1", port: 1, cookie: "dsh-auth-x=y" }
+			},
+			invalidate() {},
+		},
+	})
+
+	await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+	const { port } = server.address()
+	const socket = net.connect(port, "127.0.0.1")
+	await new Promise((resolve) => socket.once("connect", resolve))
+
+	const startedAt = Date.now()
+	await close()
+	const elapsed = Date.now() - startedAt
+
+	assert.ok(elapsed < 2500, `close() 用了 ${elapsed}ms，说明还在等连接自己结束`)
+	socket.destroy()
 })

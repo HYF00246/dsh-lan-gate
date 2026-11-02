@@ -16,3 +16,6 @@ desktop.ini
 .research/
 PLAN.md
 PUBLISHING.md
+
+# 本地运维脚本（含本机代理地址，不发布）
+tools/

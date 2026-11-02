@@ -12,10 +12,6 @@ desktop.ini
 # 插件运行时写入 $DSH_HOME 的状态文件，不应入库
 .lan-gate-state.json
 
-# 内部资料：调研笔记、实现方案草稿、发布清单（不发布）
+# 内部资料：调研笔记、实现方案草稿（不发布）
 .research/
 PLAN.md
-PUBLISHING.md
-
-# 本地运维脚本（含本机代理地址，不发布）
-tools/

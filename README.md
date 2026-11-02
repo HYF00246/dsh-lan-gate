@@ -114,9 +114,6 @@ Remove-NetFirewallRule -DisplayName "DSH LAN gate"
 dsh plugin --profile desktop add github:HYF00246/dsh-lan-gate
 ```
 
-> npm 上的 `dsh-lan-gate` 这个名字已被他人占用，本项目的 npm 包名会改用
-> `dsh-lan-gate-hotspot`（尚未发布）。发布后即可 `dsh plugin --profile desktop add dsh-lan-gate-hotspot`。
-
 安装命令会自动把插件登记到 profile 的 `dsh.profile.bundles`。
 
 ### 3. 启动 DSH

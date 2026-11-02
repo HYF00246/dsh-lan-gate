@@ -27,6 +27,12 @@
 	var GAP = 16
 	/** 小于这个宽度（手机）不显示悬浮开关，避免挡住发送/确认按钮。 */
 	var MOBILE_MAX_WIDTH = 820
+	/** 在线探测间隔：手机上靠它发现「电脑那边把开关关了」。 */
+	var WATCH_INTERVAL_MS = 3000
+	/** 连续失败几次判定为连接已断开。 */
+	var DISCONNECT_AFTER_FAILURES = 2
+	/** 用户选择「继续等待」后，多少毫秒内不再弹窗。 */
+	var DISMISS_QUIET_MS = 30000
 
 	var host = document.createElement("div")
 	host.id = "dsh-lan-gate"
@@ -143,6 +149,124 @@
 			.catch(function () {
 				state.busy = false
 				showError("无法连接 DSH")
+			})
+	}
+
+	// ── 连接已断开的提示 ────────────────────────────────────────────────
+	// 手机上页面经过代理访问，电脑一关开关，所有请求都会失败。
+	// 轮询 /__lan_gate/state 连续失败即弹窗；点「确定」清空页面（连带清掉
+	// DSH 客户端在本地排队的待发消息），避免重新打开开关后被一次性补发。
+
+	/** @type {HTMLDivElement | null} */
+	var disconnectOverlay = null
+	var consecutiveFailures = 0
+	var quietUntil = 0
+
+	/** 退出页面：先试 close()，被浏览器拒绝就跳到空白页（同样会卸载页面）。 */
+	function exitPage() {
+		try {
+			window.close()
+		} catch (error) { /* 被浏览器拒绝，走下面的兜底 */ }
+		setTimeout(function () {
+			try {
+				window.location.replace("about:blank")
+			} catch (error) { /* 忽略 */ }
+		}, 60)
+	}
+
+	/** 构造断线弹窗。 */
+	function buildDisconnectOverlay() {
+		var overlay = document.createElement("div")
+		overlay.setAttribute("role", "dialog")
+		overlay.setAttribute("aria-modal", "true")
+		overlay.style.cssText = [
+			"position:fixed", "inset:0", "z-index:2147483600",
+			"display:flex", "align-items:center", "justify-content:center",
+			"background:rgba(15,23,42,.55)",
+			"font:14px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif",
+			"-webkit-font-smoothing:antialiased",
+		].join(";")
+
+		var card = document.createElement("div")
+		card.style.cssText = [
+			"box-sizing:border-box", "max-width:min(360px,86vw)", "padding:22px 20px",
+			"border-radius:14px", "background:#fff", "color:#111827", "text-align:center",
+			"box-shadow:0 18px 48px rgba(0,0,0,.32)",
+		].join(";")
+
+		var title = document.createElement("div")
+		title.textContent = "局域网访问已关闭"
+		title.style.cssText = "font-size:16px;font-weight:700;margin-bottom:8px"
+
+		var body = document.createElement("div")
+		body.textContent = "与电脑的连接已断开：可能是电脑上关掉了「局域网访问」，或手机与热点断开。"
+		body.style.cssText = "color:#4b5563;margin-bottom:16px"
+
+		var ok = document.createElement("button")
+		ok.type = "button"
+		ok.textContent = "确定，退出页面"
+		ok.style.cssText = [
+			"width:100%", "height:38px", "border:none", "border-radius:10px",
+			"background:#16a34a", "color:#fff", "font:600 14px/1 system-ui,sans-serif",
+			"cursor:pointer",
+		].join(";")
+		ok.addEventListener("click", exitPage)
+
+		var stay = document.createElement("button")
+		stay.type = "button"
+		stay.textContent = "继续等待连接"
+		stay.style.cssText = [
+			"margin-top:8px", "width:100%", "height:34px", "border:none", "border-radius:10px",
+			"background:transparent", "color:#6b7280", "font:500 13px/1 system-ui,sans-serif",
+			"cursor:pointer",
+		].join(";")
+		stay.addEventListener("click", function () {
+			quietUntil = Date.now() + DISMISS_QUIET_MS
+			hideDisconnect()
+		})
+
+		card.appendChild(title)
+		card.appendChild(body)
+		card.appendChild(ok)
+		card.appendChild(stay)
+		overlay.appendChild(card)
+		return overlay
+	}
+
+	/** 显示断线弹窗（重复调用无副作用）。 */
+	function showDisconnect() {
+		if (disconnectOverlay !== null) return
+		if (document.body === null) return
+		disconnectOverlay = buildDisconnectOverlay()
+		document.body.appendChild(disconnectOverlay)
+	}
+
+	/** 关闭断线弹窗（连接恢复时调用）。 */
+	function hideDisconnect() {
+		if (disconnectOverlay === null) return
+		disconnectOverlay.remove()
+		disconnectOverlay = null
+	}
+
+	/** 探测一次连接；连续失败就弹窗。 */
+	function pollGate() {
+		var options = { headers: { accept: "application/json" }, cache: "no-store" }
+		if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+			options.signal = AbortSignal.timeout(2500)
+		}
+		fetch(STATE_URL, options)
+			.then(function (response) {
+				if (!response.ok) throw new Error("bad status")
+				return response.json()
+			})
+			.then(function (payload) {
+				consecutiveFailures = 0
+				hideDisconnect()
+				if (!state.busy) applyStatus(payload)
+			})
+			.catch(function () {
+				consecutiveFailures += 1
+				if (consecutiveFailures >= DISCONNECT_AFTER_FAILURES && Date.now() >= quietUntil) showDisconnect()
 			})
 	}
 
@@ -281,6 +405,8 @@
 		initialPlace()
 		render()
 		refresh()
+		// 手机上靠轮询发现「电脑关掉了开关」，然后弹窗提示并允许退出页面
+		setInterval(pollGate, WATCH_INTERVAL_MS)
 		// 布局稳定后校正一次（字体、鲸鱼挂件可能稍后才出现）
 		setTimeout(function () {
 			if (position === null) defaultPosition()

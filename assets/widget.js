@@ -405,14 +405,49 @@
 		initialPlace()
 		render()
 		refresh()
-		// 手机上靠轮询发现「电脑关掉了开关」，然后弹窗提示并允许退出页面
-		setInterval(pollGate, WATCH_INTERVAL_MS)
+		// 手机上靠轮询发现「电脑关掉了开关」，然后弹窗提示并允许退出页面。
+		// 只在前台轮询：切后台/锁屏就停，回到前台立刻探一次。
+		syncWatch()
 		// 布局稳定后校正一次（字体、鲸鱼挂件可能稍后才出现）
 		setTimeout(function () {
 			if (position === null) defaultPosition()
 			else place(position.right, position.bottom)
 		}, 400)
 	}
+
+	/** 当前是否在前台（页面可见）。 */
+	function pageVisible() {
+		return typeof document.visibilityState === "string" ? document.visibilityState === "visible" : true
+	}
+
+	var watchTimer = 0
+
+	/** 开始轮询（幂等）。 */
+	function startWatch() {
+		if (watchTimer !== 0) return
+		watchTimer = window.setInterval(pollGate, WATCH_INTERVAL_MS)
+	}
+
+	/** 停止轮询（幂等）。 */
+	function stopWatch() {
+		if (watchTimer === 0) return
+		window.clearInterval(watchTimer)
+		watchTimer = 0
+	}
+
+	/** 按页面可见性启停轮询；回到前台立即探测一次。 */
+	function syncWatch() {
+		if (pageVisible()) {
+			pollGate()
+			startWatch()
+		} else {
+			stopWatch()
+		}
+	}
+
+	document.addEventListener("visibilitychange", syncWatch)
+	window.addEventListener("pagehide", stopWatch)
+	window.addEventListener("pageshow", syncWatch)
 
 	render()
 	if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true })

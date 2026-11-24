@@ -143,14 +143,144 @@
 			})
 			.then(function (result) {
 				state.busy = false
-				if (result.ok) applyStatus(result.payload)
-				else showError((result.payload && result.payload.error) || "操作失败")
+				if (result.ok) {
+					applyStatus(result.payload)
+					// 从这一页打开开关时，顺手告诉用户手机上该访问哪个地址
+					if (result.payload && result.payload.enabled === true) showEnabledDialog(result.payload.address)
+					else hideEnabledDialog()
+				} else {
+					showError((result.payload && result.payload.error) || "操作失败")
+				}
 			})
 			.catch(function () {
 				state.busy = false
 				showError("无法连接 DSH")
 			})
 	}
+
+	// ── 开启成功后的地址提示 ────────────────────────────────────────────
+	// 开关关闭时手机没有连接，服务器推不了任何东西，所以提示放在电脑这一侧：
+	// 你在电脑上点开开关后，直接告诉你手机浏览器该输入什么地址，并可一键复制。
+
+	/** @type {HTMLDivElement | null} */
+	var enabledOverlay = null
+	var enabledTimer = 0
+
+	/** 复制文本：优先剪贴板 API，失败回退到临时 textarea。 */
+	function copyText(text) {
+		function fallback() {
+			try {
+				var area = document.createElement("textarea")
+				area.value = text
+				area.setAttribute("readonly", "")
+				area.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0"
+				document.body.appendChild(area)
+				area.select()
+				document.execCommand("copy")
+				area.remove()
+				return true
+			} catch (error) {
+				return false
+			}
+		}
+		if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+			return navigator.clipboard.writeText(text).then(function () { return true }, fallback)
+		}
+		return Promise.resolve(fallback())
+	}
+
+	/** 关闭「已开启」提示。 */
+	function hideEnabledDialog() {
+		clearTimeout(enabledTimer)
+		if (enabledOverlay !== null) {
+			enabledOverlay.remove()
+			enabledOverlay = null
+		}
+	}
+
+	/**
+	 * 显示「局域网访问已开启」提示。
+	 * @param {string} address - `host:port`
+	 */
+	function showEnabledDialog(address) {
+		if (typeof address !== "string" || address === "") return
+		if (document.body === null) return
+		hideEnabledDialog()
+
+		var url = "http://" + address
+
+		var overlay = document.createElement("div")
+		overlay.setAttribute("role", "dialog")
+		overlay.setAttribute("aria-modal", "false")
+		overlay.style.cssText = [
+			"position:fixed", "inset:0", "z-index:2147483500",
+			"display:flex", "align-items:center", "justify-content:center",
+			"background:rgba(15,23,42,.35)",
+			"font:14px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif",
+			"-webkit-font-smoothing:antialiased",
+		].join(";")
+
+		var card = document.createElement("div")
+		card.style.cssText = [
+			"box-sizing:border-box", "width:min(420px,90vw)", "padding:22px 20px",
+			"border-radius:14px", "background:#fff", "color:#111827", "text-align:center",
+			"box-shadow:0 18px 48px rgba(0,0,0,.3)",
+		].join(";")
+
+		var title = document.createElement("div")
+		title.textContent = "局域网访问已开启"
+		title.style.cssText = "font-size:16px;font-weight:700;margin-bottom:6px"
+
+		var hint = document.createElement("div")
+		hint.textContent = "手机连上电脑的移动热点后，用浏览器打开："
+		hint.style.cssText = "color:#4b5563;margin-bottom:10px"
+
+		var urlBox = document.createElement("div")
+		urlBox.textContent = url
+		urlBox.style.cssText = [
+			"box-sizing:border-box", "width:100%", "padding:10px 12px", "margin-bottom:14px",
+			"border-radius:10px", "background:#ecfdf5", "border:1px solid #a7f3d0",
+			"color:#065f46", "font:600 15px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace",
+			"user-select:all", "word-break:break-all",
+		].join(";")
+
+		var copy = document.createElement("button")
+		copy.type = "button"
+		copy.textContent = "复制地址"
+		copy.style.cssText = [
+			"width:100%", "height:38px", "border:none", "border-radius:10px",
+			"background:#16a34a", "color:#fff", "font:600 14px/1 system-ui,sans-serif",
+			"cursor:pointer",
+		].join(";")
+		copy.addEventListener("click", function () {
+			void copyText(url).then(function (ok) {
+				copy.textContent = ok ? "已复制 ✓" : "复制失败，请手动选中"
+				if (ok) setTimeout(function () { hideEnabledDialog() }, 900)
+			})
+		})
+
+		var close = document.createElement("button")
+		close.type = "button"
+		close.textContent = "关闭"
+		close.style.cssText = [
+			"margin-top:8px", "width:100%", "height:34px", "border:none", "border-radius:10px",
+			"background:transparent", "color:#6b7280", "font:500 13px/1 system-ui,sans-serif",
+			"cursor:pointer",
+		].join(";")
+		close.addEventListener("click", hideEnabledDialog)
+
+		card.appendChild(title)
+		card.appendChild(hint)
+		card.appendChild(urlBox)
+		card.appendChild(copy)
+		card.appendChild(close)
+		overlay.appendChild(card)
+		document.body.appendChild(overlay)
+		enabledOverlay = overlay
+		// 30 秒没操作自动收起，避免一直挡着
+		enabledTimer = setTimeout(hideEnabledDialog, 30000)
+	}
+
 
 	// ── 连接已断开的提示 ────────────────────────────────────────────────
 	// 手机上页面经过代理访问，电脑一关开关，所有请求都会失败。
@@ -237,6 +367,7 @@
 	function showDisconnect() {
 		if (disconnectOverlay !== null) return
 		if (document.body === null) return
+		hideEnabledDialog()
 		disconnectOverlay = buildDisconnectOverlay()
 		document.body.appendChild(disconnectOverlay)
 	}
